@@ -47,7 +47,7 @@ app.get("/posts", async (req: Request, res: Response) => {
   try {
     const posts = await Post.find(); // Fetch all posts from MongoDB
     res.json(posts); // Return posts as JSON
-    console.log(posts);
+
   } catch (error) {
     res.status(500).json({ message: "Error fetching posts", error });
   }
