@@ -3,10 +3,14 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import { MongoClient } from "mongodb"; // Import MongoClient
+const morgan = require("morgan");
 
 const app = express();
+
+
 app.use(cors());
 app.use(express.json());
+app.use(morgan("dev")); // Logging middleware
 
 // Connect to MongoDB using Mongoose
 mongoose.connect(process.env.MONGO_URI as string)
@@ -42,16 +46,19 @@ const postSchema = new mongoose.Schema({
 
 const Post = mongoose.model("Post", postSchema);
 
-// Route to fetch all posts
-app.get("/posts", async (req: Request, res: Response) => {
-  try {
-    const posts = await Post.find(); // Fetch all posts from MongoDB
-    res.json(posts); // Return posts as JSON
-
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching posts", error });
+export default async (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    try {
+      // Example query to fetch posts
+      const posts = await client.db("assignment-blog-site").collection("posts").find().toArray();
+      res.status(200).json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching posts", error });
+    }
+  } else {
+    res.status(404).json({ message: "Route not found" });
   }
-});
+};
 
 // Test route
 app.get("/", (req, res) => {
