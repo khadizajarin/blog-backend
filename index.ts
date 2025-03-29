@@ -1,41 +1,39 @@
 require("dotenv").config();
-import express, { Request, Response } from "express";
-import cors from "cors";
+const express = require("express");
+const cors = require("cors");
 import mongoose from "mongoose";
-import { MongoClient } from "mongodb"; // Import MongoClient
+const { MongoClient } = require("mongodb");
 const morgan = require("morgan");
 
 const app = express();
-
 
 app.use(cors());
 app.use(express.json());
 app.use(morgan("dev")); // Logging middleware
 
-// Connect to MongoDB using Mongoose
-mongoose.connect(process.env.MONGO_URI as string)
-  .then(() => console.log("MongoDB Connected via Mongoose"))
-  .catch(err => console.error(err));
+// 🔹 Global DB Variable (Initialized Later)
+let db: { collection: (arg0: string) => any; };
 
-// Connect to MongoDB Client and perform ping check
-const mongoUri = process.env.MONGO_URI as string; // Your MongoDB URI
-const client = new MongoClient(mongoUri);
+// ✅ Connect to MongoDB Once
+async function connectDB() {
+    try {
+        const client = new MongoClient(process.env.MONGO_URI);
+        //await client.connect();
+        db = client.db("assignment-blog-site"); // Assign DB globally
+        console.log("✅ MongoDB Connected Successfully");
+    } catch (error) {
+        console.error("❌ MongoDB Connection Error:", error);
+        //process.exit(1);
+    }
+}
 
-const checkMongoConnection = async () => {
-  try {
-    //await client.connect();
-    console.log("MongoDB Client Connected");
+// 📌 Call connectDB() when the server starts
+connectDB();
 
-    // Ping the database to check connection
-    //await client.db("admin").command({ ping: 1 });
-    console.log("Ping successful");
-    //await client.close(); // Close the client connection
-  } catch (error) {
-    console.error("MongoDB Client connection failed", error);
-  }
-};
-
-checkMongoConnection(); // Call the function to perform the ping
+// ✅ Sample Route (Basic)
+app.get("/", (req, res) => {
+  res.send("API is running...");
+});
 
 // Post schema for MongoDB using Mongoose
 const postSchema = new mongoose.Schema({
@@ -46,23 +44,24 @@ const postSchema = new mongoose.Schema({
 
 const Post = mongoose.model("Post", postSchema);
 
-export default async (req: Request, res: Response) => {
-  if (req.method === 'GET') {
-    try {
-      // Example query to fetch posts
-      const posts = await client.db("assignment-blog-site").collection("posts").find().toArray();
-      res.status(200).json(posts);
-    } catch (error) {
-      res.status(500).json({ message: "Error fetching posts", error });
-    }
-  } else {
-    res.status(404).json({ message: "Route not found" });
-  }
-};
+// ✅ GET Posts (Sorted by Latest Time)
+app.get("/posts", async (req, res) => {
+  try {
+      if (!db) return res.status(500).json({ message: "Database not connected!" });
 
-// Test route
-app.get("/", (req, res) => {
-  res.send("Blog API is running!");
+      const postsCollection = db.collection("posts");
+
+      // Fetch posts sorted in descending order (latest first)
+      const posts = await postsCollection.find().sort({ createdAt: -1 }).toArray();
+
+      res.status(200).json(posts);
+  } catch (error) {
+      console.error("❌ Fetch Posts Error:", error);
+      res.status(500).json({ message: "Server error", error });
+  }
 });
 
+
+
+// Start Express server
 app.listen(5000, () => console.log("Server running on port 5000"));
