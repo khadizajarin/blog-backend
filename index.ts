@@ -44,13 +44,13 @@ const postSchema = new mongoose.Schema(
   {
     author: { type: String, required: true },
     title: { type: String, required: true },
-    publishedDate: { type: Date, required: true },
     category: { type: String, required: true },
+    subcategory: { type: String, required: true },  
     likes: { type: Number },
     views: { type: Number },
     summary: { type: String, required: true },
     description: { type: String, required: true },
-    images: { type: [String] }, // Changed to store URLs of images
+    images: { type: [String] },
   },
   { timestamps: true }
 );
@@ -104,12 +104,15 @@ app.get("/posts", async (_req: Request, res: Response) => {
 // POST new post with images
 app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
   try {
-    const { author, title, publishedDate, category, summary, description } = req.body;
+    const { author, title, category,subcategory, summary, description } = req.body;
+       // Set default likes and views to 0
+       const likes = 0;
+       const views = 0;
 
     // Handle the files
     const imageUrls: string[] = [];
 
-    if (req.files && req.files.length > 0) {
+    if (req.files) {
       // Upload images to Cloudinary
       const uploadPromises = (req.files as Express.Multer.File[]).map((file) => {
         return new Promise<string>((resolve, reject) => {
@@ -133,11 +136,13 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
     const newPost = new Post({
       author,
       title,
-      publishedDate,
       category,
+      subcategory,
       summary,
       description,
       images: imageUrls, // Save image URLs
+      likes,  // Set likes to 0 by default
+      views,  // Set views to 0 by default
     });
 
     await newPost.save();
