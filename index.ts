@@ -10,9 +10,9 @@ import morgan from "morgan";
 import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUD_API_KEY,
+  api_secret: process.env.CLOUD_API_SECRET,
 });
 
 
@@ -105,36 +105,6 @@ app.get("/posts", async (_req: Request, res: Response) => {
 });
 
 // POST new post with images
-// app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
-//   try {
-//     const { author, title, publishedDate, category, subcategory, likes, views, summary, tags, description } = req.body;
-
-//     const parsedSubcategory: string[] = typeof subcategory === "string" ? JSON.parse(subcategory) : subcategory;
-//     const parsedTags: string[] = typeof tags === "string" ? tags.split(",") : [];
-//     const imagePaths: string[] = req.files ? (req.files as Express.Multer.File[]).map(file => file.path) : [];
-
-//     const newPost = new Post({
-//       author,
-//       title,
-//       publishedDate,
-//       category,
-//       summary,
-//       likes,
-//       views,
-//       description,
-//       subcategory: parsedSubcategory,
-//       tags: parsedTags,
-//       images: imagePaths,
-//     });
-
-//     await newPost.save();
-//     res.status(201).json({ message: "Post created successfully!", post: newPost });
-//   } catch (error) {
-//     console.error("❌ Error creating post:", error);
-//     res.status(500).json({ message: "Server error", error });
-//   }
-// });
-
 app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
   try {
     const { author, title, publishedDate, category, subcategory, likes, views, summary, tags, description } = req.body;
