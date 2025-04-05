@@ -43,6 +43,7 @@ const upload = multer({
 const postSchema = new mongoose.Schema(
   {
     author: { type: String, required: true },
+    authorEmail: { type: String, required: true },  // Add this line
     title: { type: String, required: true },
     category: { type: String, required: true },
     subcategory: { type: String, required: true },  
@@ -102,12 +103,13 @@ app.get("/posts", async (_req: Request, res: Response) => {
 });
 
 // POST new post with images
-app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
+app.post("/posts", upload.array("images", 10), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { author, title, category,subcategory, summary, description, } = req.body;
-       // Set default likes and views to 0
-       const likes = 0;
-       const views = 0;
+    const { author, title, category, subcategory, summary, description } = req.body;
+
+    // Set default likes and views to 0
+    const likes = 0;
+    const views = 0;
 
     // Handle the files
     const imageUrls: string[] = [];
@@ -144,6 +146,8 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
       likes,  // Set likes to 0 by default
       views,  // Set views to 0 by default
     });
+
+    console.log(newPost);
 
     await newPost.save();
     res.status(201).json({ message: "Post created successfully!", post: newPost });

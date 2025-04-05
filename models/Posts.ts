@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 interface IPost extends Document {
   author: string;
+  authorEmail: string;
   title: string;
   category: string;
   subcategory: string;
@@ -15,6 +16,7 @@ interface IPost extends Document {
 
 const PostSchema = new Schema<IPost>({
   author: { type: String, required: true },
+  authorEmail: { type: String, required: true },
   title: { type: String, required: true },
   category: { type: String, required: true },
   likes:{type: Number, required:true},
