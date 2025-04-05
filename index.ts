@@ -81,8 +81,6 @@ app.get("/posts", async (_req: Request, res: Response) => {
   }
 });
 
-
-
 //Update POSts
 app.put("/posts/:id", upload.array("images", 10), async (req: Request, res: Response): Promise<void> => {
   try {
@@ -164,9 +162,6 @@ app.delete("/posts/:id", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-
-
-
 // POST new post with images
 app.post("/posts", upload.array("images", 10), async (req: Request, res: Response): Promise<void> => {
   try {
@@ -222,6 +217,31 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
     res.status(500).json({ message: "Server error", error });
   }
 });
+
+// Example using Express and MongoDB (Mongoose)
+app.get('/posts/search', async (req: Request, res: Response): Promise<void> => {
+  const { q } = req.query;
+  
+  
+  try {
+    const posts = await Post.find({
+      $or: [
+        { title: { $regex: q, $options: 'i' } }, // Case-insensitive match
+        { author: { $regex: q, $options: 'i' } },
+        { category: { $regex: q, $options: 'i' } },
+        { subcategory: { $regex: q, $options: 'i' } },
+        { summary: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } },
+      ],
+    });
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching posts' });
+  }
+});
+
+
+
 
 // Sample Route
 app.get("/", (_req: Request, res: Response) => {
