@@ -136,6 +136,33 @@ app.put("/posts/:id", upload.array("images", 10), async (req: Request, res: Resp
   }
 });
 
+// DELETE post by ID
+app.delete("/posts/:id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;  // Get the post ID from the URL
+    const post = await Post.findById(id);
+    console.log("updating id", id, post);
+
+    // Delete the images from Cloudinary (if any)
+    if (post?.images && post.images.length > 0) {
+      const deletePromises = post.images.map((imageUrl) => {
+        const publicId = imageUrl.split("/").pop()?.split(".")[0]; // Extract the public ID from the URL
+        return cloudinary.uploader.destroy(publicId || ""); // Destroy the image by public ID
+      });
+
+      // Wait for all image deletions to complete
+      await Promise.all(deletePromises);
+    }
+
+    // Delete the post from the database
+    await Post.findByIdAndDelete(id);
+
+    res.status(200).json({ message: "Post deleted successfully" });
+  } catch (error) {
+    console.error("❌ Error deleting post:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+});
 
 
 
