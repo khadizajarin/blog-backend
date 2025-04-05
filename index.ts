@@ -15,7 +15,6 @@ cloudinary.config({
   api_secret: process.env.CLOUD_API_SECRET,
 });
 
-
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
@@ -25,38 +24,36 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 // File upload setup
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, "uploads/"),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`),
-});
+const storage = multer.memoryStorage();  // Using memory storage to upload files directly to Cloudinary
 
-const upload = multer({ storage });
-
-// Ensure the uploads directory exists
-const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-// Sample Route
-app.get("/", (_req: Request, res: Response) => {
-  res.send("API is running...");
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for each file
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type"));
+    }
+  },
 });
 
 // Post schema
-const postSchema = new mongoose.Schema({
-  author: { type: String, required: true },
-  title: { type: String, required: true },
-  publishedDate: { type: Date, required: true },
-  category: { type: String, required: true },
-  likes: { type: Number },
-  views: { type: Number },
-  subcategory: { type: [String] },
-  summary: { type: String, required: true },
-  tags: { type: [String] },
-  description: { type: String, required: true },
-  images: { type: [String] },
-}, { timestamps: true });
+const postSchema = new mongoose.Schema(
+  {
+    author: { type: String, required: true },
+    title: { type: String, required: true },
+    publishedDate: { type: Date, required: true },
+    category: { type: String, required: true },
+    likes: { type: Number },
+    views: { type: Number },
+    summary: { type: String, required: true },
+    description: { type: String, required: true },
+    images: { type: [String] }, // Changed to store URLs of images
+  },
+  { timestamps: true }
+);
 
 const Post = mongoose.model("Post", postSchema);
 
@@ -107,26 +104,31 @@ app.get("/posts", async (_req: Request, res: Response) => {
 // POST new post with images
 app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
   try {
-    const { author, title, publishedDate, category, subcategory, likes, views, summary, tags, description } = req.body;
+    const { author, title, publishedDate, category, summary, description } = req.body;
 
-    const parsedSubcategory: string[] = typeof subcategory === "string" ? JSON.parse(subcategory) : subcategory;
-    const parsedTags: string[] = typeof tags === "string" ? tags.split(",") : [];
+    // Handle the files
+    const imageUrls: string[] = [];
 
-    // Upload each image buffer to Cloudinary
-    const uploadPromises = (req.files as Express.Multer.File[]).map((file) => {
-      return new Promise<string>((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream({ folder: "blog-posts" }, (err, result) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(result?.secure_url || "");
-          }
+    if (req.files && req.files.length > 0) {
+      // Upload images to Cloudinary
+      const uploadPromises = (req.files as Express.Multer.File[]).map((file) => {
+        return new Promise<string>((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "blog-posts" },
+            (err, result) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve(result?.secure_url || "");
+              }
+            }
+          );
+          stream.end(file.buffer); // Upload file buffer directly to Cloudinary
         });
-        stream.end(file.buffer);
       });
-    });
 
-    const imageUrls = await Promise.all(uploadPromises);
+      imageUrls.push(...await Promise.all(uploadPromises));  // All image URLs after upload
+    }
 
     const newPost = new Post({
       author,
@@ -134,12 +136,8 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
       publishedDate,
       category,
       summary,
-      likes,
-      views,
       description,
-      subcategory: parsedSubcategory,
-      tags: parsedTags,
-      images: imageUrls,
+      images: imageUrls, // Save image URLs
     });
 
     await newPost.save();
@@ -150,6 +148,10 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
   }
 });
 
+// Sample Route
+app.get("/", (_req: Request, res: Response) => {
+  res.send("API is running...");
+});
 
 // Start server
 app.listen(PORT, () => {
