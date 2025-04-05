@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Date, Document, Schema } from 'mongoose';
 
 interface IPost extends Document {
   author: string;
@@ -11,7 +11,7 @@ interface IPost extends Document {
   summary: string;
   description: string;
   images: string[];  // Array of strings to store image paths
-
+  
 }
 
 const PostSchema = new Schema<IPost>({
@@ -19,12 +19,15 @@ const PostSchema = new Schema<IPost>({
   authorEmail: { type: String, required: true },
   title: { type: String, required: true },
   category: { type: String, required: true },
-  likes:{type: Number, required:true},
-  views:{type: Number, required:true},
-  subcategory: { type: String, required: true },// Optional array of subcategories
+  likes: { type: Number, default: 0 },
+  views: { type: Number, default: 0 },
+  subcategory: { type: String, required: true },
   summary: { type: String, required: true },
   description: { type: String, required: true },
-  images: { type: [String], required: false },  // Optional array of image paths
+  images: { type: [String], required: false }, 
+},
+ {
+  timestamps: true, // This adds createdAt and updatedAt fields automatically
 });
 
 const Post = mongoose.model<IPost>('Post', PostSchema);

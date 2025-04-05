@@ -4,10 +4,9 @@ import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import mongoose, { ConnectOptions } from "mongoose";
 import multer, { FileFilterCallback } from "multer";
-import path from "path";
-import fs from "fs";
 import morgan from "morgan";
 import { v2 as cloudinary } from "cloudinary";
+import Post from "./models/Posts";
 
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
@@ -39,24 +38,6 @@ const upload = multer({
   },
 });
 
-// Post schema
-const postSchema = new mongoose.Schema(
-  {
-    author: { type: String, required: true },
-    authorEmail: { type: String, required: true },  // Add this line
-    title: { type: String, required: true },
-    category: { type: String, required: true },
-    subcategory: { type: String, required: true },  
-    likes: { type: Number },
-    views: { type: Number },
-    summary: { type: String, required: true },
-    description: { type: String, required: true },
-    images: { type: [String] },
-  },
-  { timestamps: true }
-);
-
-const Post = mongoose.model("Post", postSchema);
 
 // MongoDB connection
 async function connectDB(): Promise<void> {
@@ -67,8 +48,6 @@ async function connectDB(): Promise<void> {
     }
 
     const options: ConnectOptions = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
       maxPoolSize: 10,
@@ -102,10 +81,69 @@ app.get("/posts", async (_req: Request, res: Response) => {
   }
 });
 
+
+
+//Update POSts
+app.put("/posts/:id", upload.array("images", 10), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;  // Get the post ID from the URL
+    const post = await Post.findById(id);
+    //console.log("updating id", id, post);
+    const { title, category, subcategory, summary, description } = req.body;
+
+    // Handle the files (images)
+    const imageUrls: string[] = [];
+    
+    if (req.files) {
+      // Upload images to Cloudinary
+      const uploadPromises = (req.files as Express.Multer.File[]).map((file) => {
+        return new Promise<string>((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "blog-posts" },
+            (err, result) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve(result?.secure_url || "");
+              }
+            }
+          );
+          stream.end(file.buffer); // Upload file buffer directly to Cloudinary
+        });
+      });
+
+      imageUrls.push(...await Promise.all(uploadPromises));  // All image URLs after upload
+    }
+
+    // Update post data, excluding id, author, and authorEmail
+    const updatedPost = await Post.findByIdAndUpdate(
+      id,
+      {
+        title,
+        category,
+        subcategory,
+        summary,
+        description,
+        images: imageUrls.length > 0 ? imageUrls : undefined, // Only update images if new ones are provided
+      },
+      { new: true }  // Return the updated document
+    );
+
+    res.status(200).json({ message: "Post updated successfully", post: updatedPost });
+  } catch (error) {
+    console.error("❌ Error updating post:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+});
+
+
+
+
+
 // POST new post with images
 app.post("/posts", upload.array("images", 10), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { author, title, category, subcategory, summary, description } = req.body;
+    const { author, authorEmail, title, category, subcategory, summary, description } = req.body;
 
     // Set default likes and views to 0
     const likes = 0;
@@ -137,6 +175,7 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
 
     const newPost = new Post({
       author,
+      authorEmail,
       title,
       category,
       subcategory,
@@ -147,7 +186,7 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
       views,  // Set views to 0 by default
     });
 
-    console.log(newPost);
+    //console.log(newPost);
 
     await newPost.save();
     res.status(201).json({ message: "Post created successfully!", post: newPost });
