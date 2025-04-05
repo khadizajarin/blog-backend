@@ -104,7 +104,7 @@ app.get("/posts", async (_req: Request, res: Response) => {
 // POST new post with images
 app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
   try {
-    const { author, title, category,subcategory, summary, description } = req.body;
+    const { author, title, category,subcategory, summary, description, } = req.body;
        // Set default likes and views to 0
        const likes = 0;
        const views = 0;
