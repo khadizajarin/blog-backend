@@ -1,5 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config();
+require("dotenv").config();
 
 import express, { Application, Request, Response } from "express";
 import cors from "cors";
@@ -8,6 +7,14 @@ import multer, { FileFilterCallback } from "multer";
 import path from "path";
 import fs from "fs";
 import morgan from "morgan";
+import { v2 as cloudinary } from "cloudinary";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -98,13 +105,58 @@ app.get("/posts", async (_req: Request, res: Response) => {
 });
 
 // POST new post with images
+// app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
+//   try {
+//     const { author, title, publishedDate, category, subcategory, likes, views, summary, tags, description } = req.body;
+
+//     const parsedSubcategory: string[] = typeof subcategory === "string" ? JSON.parse(subcategory) : subcategory;
+//     const parsedTags: string[] = typeof tags === "string" ? tags.split(",") : [];
+//     const imagePaths: string[] = req.files ? (req.files as Express.Multer.File[]).map(file => file.path) : [];
+
+//     const newPost = new Post({
+//       author,
+//       title,
+//       publishedDate,
+//       category,
+//       summary,
+//       likes,
+//       views,
+//       description,
+//       subcategory: parsedSubcategory,
+//       tags: parsedTags,
+//       images: imagePaths,
+//     });
+
+//     await newPost.save();
+//     res.status(201).json({ message: "Post created successfully!", post: newPost });
+//   } catch (error) {
+//     console.error("❌ Error creating post:", error);
+//     res.status(500).json({ message: "Server error", error });
+//   }
+// });
+
 app.post("/posts", upload.array("images", 10), async (req: Request, res: Response) => {
   try {
     const { author, title, publishedDate, category, subcategory, likes, views, summary, tags, description } = req.body;
 
     const parsedSubcategory: string[] = typeof subcategory === "string" ? JSON.parse(subcategory) : subcategory;
     const parsedTags: string[] = typeof tags === "string" ? tags.split(",") : [];
-    const imagePaths: string[] = req.files ? (req.files as Express.Multer.File[]).map(file => file.path) : [];
+
+    // Upload each image buffer to Cloudinary
+    const uploadPromises = (req.files as Express.Multer.File[]).map((file) => {
+      return new Promise<string>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream({ folder: "blog-posts" }, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(result?.secure_url || "");
+          }
+        });
+        stream.end(file.buffer);
+      });
+    });
+
+    const imageUrls = await Promise.all(uploadPromises);
 
     const newPost = new Post({
       author,
@@ -117,7 +169,7 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
       description,
       subcategory: parsedSubcategory,
       tags: parsedTags,
-      images: imagePaths,
+      images: imageUrls,
     });
 
     await newPost.save();
@@ -127,6 +179,7 @@ app.post("/posts", upload.array("images", 10), async (req: Request, res: Respons
     res.status(500).json({ message: "Server error", error });
   }
 });
+
 
 // Start server
 app.listen(PORT, () => {
